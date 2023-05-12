@@ -1,0 +1,19 @@
+{
+    "name": "orion/core",
+    "description": "A mini framework intended for educational purpose",
+    "type": "library",
+    "license": "ISC",
+    "authors": [
+        {
+            "name": "Orion Electron"
+        }
+    ],
+    "autoload": {
+        "psr-4": {
+            "orion\\": "./"
+        }
+    },
+    "require": {
+        "vlucas/phpdotenv": "^5.5"
+    }
+}

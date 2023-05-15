@@ -4,6 +4,7 @@
 
 namespace orion\core;
 
+use FFI\Exception;
 use PDO;
 use PDOException;
 
@@ -65,6 +66,73 @@ class Database
             migration VARCHAR(255),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         ) ENGINE=INNODB;");
+    }
+
+    public function executeTransaction(array $sqlStatements)
+    {
+        $this->pdo->beginTransaction();
+
+        try {
+            foreach ($sqlStatements as $sql) {
+                $stmt = $this->pdo->prepare($sql);
+                $stmt->execute();
+            }
+
+            $this->pdo->commit();
+            echo "Transaction completed successfully.";
+        } catch (Exception $e) {
+            $this->pdo->rollBack();
+            echo "Transaction failed. Rolling back changes.";
+            // You can also log or handle the error in a different way if needed
+        }
+    }
+    public function query($sql, $params = [])
+    {
+        try {
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute($params);
+            return $stmt;
+        } catch (PDOException $e) {
+            throw new Exception("Query failed: " . $e->getMessage());
+        }
+    }
+    public function fetch($sql, $params = [])
+    {
+        $stmt = $this->query($sql, $params);
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+
+    public function fetchAll($sql, $params = [])
+    {
+        $stmt = $this->query($sql, $params);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function insert($table, $data)
+    {
+        $keys = array_keys($data);
+        $values = array_values($data);
+        $placeholders = implode(",", array_fill(0, count($values), "?"));
+        $sql = "INSERT INTO $table (" . implode(",", $keys) . ") VALUES ($placeholders)";
+        $this->query($sql, $values);
+        return $this->pdo->lastInsertId();
+    }
+
+    public function update($table, $data, $where)
+    {
+        $keys = array_keys($data);
+        $values = array_values($data);
+        $set = implode("=?,", $keys) . "=?";
+        $sql = "UPDATE $table SET $set WHERE $where";
+        $result = $this->query($sql, $values);
+        return $result->rowCount();
+    }
+
+    public function delete($table, $where)
+    {
+        $sql = "DELETE FROM $table WHERE $where";
+        $result = $this->query($sql);
+        return $result->rowCount();
     }
 
     public function getAppliedMigrations()

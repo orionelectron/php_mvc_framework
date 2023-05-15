@@ -8,25 +8,16 @@ class Request
     protected array $body = [];
 
     protected string $requestPath;
-    protected string $content_type;
-    protected string $content_length;
-    protected string $authorization;
-    protected string $accept_language;
-    protected string $referer;
+    protected array $headers = [];
+    protected array $cookies = [];
 
-    protected array $cookies;
     public function __construct()
     {
         $this->requestMethod = strtolower($_SERVER['REQUEST_METHOD'] ?? '');
-        //$this->filter_request();
-        $this->sanitize_cookies();
-        $this->cookies = $_COOKIE;
-        $this->content_type = $_SERVER['HTTP_CONTENT_TYPE'] ?? '';
-        $this->content_length = $_SERVER['HTTP_CONTENT_LENGTH'] ?? '';
-        $this->authorization = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
-        $this->accept_language = $_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? '';
-        $this->referer = $_SERVER['HTTP_REFERER'] ?? '';
         $this->requestPath = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
+        $this->headers = $this->getHeaders();
+        $this->cookies = $this->getCookies();
+        $this->body = $this->getBody();
     }
 
     public function method()
@@ -34,105 +25,75 @@ class Request
         return $this->requestMethod;
     }
 
-    public function getRequestPath(){
+    public function getRequestPath()
+    {
         return $this->requestPath;
     }
 
-    private function sanitize_cookies()
-    {
-        foreach ($_COOKIE as $key => $value) {
-            $_COOKIE[$key] = filter_var($value, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
-        }
-    }
-    private function sanitize_get()
-    {
-        $sanitized_get = array_map(function ($value) {
-            return filter_var($value, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
-        }, $_GET);
-
-        return $sanitized_get;
-    }
-    private function sanitize_post()
-    {
-        $sanitized_post = array_map(function ($value) {
-            return filter_var($value, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
-        }, $_POST);
-        return $sanitized_post;
-    }
     public function body()
     {
-        if ($this->requestMethod === 'get') {
-            $this->body = $this->sanitize_get();
-        } else if ($this->requestMethod === 'post') {
-            $post = $this->sanitize_post();
-            $this->body = array_merge($post, $_FILES);
-        }
-
         return $this->body;
     }
 
-    public function addParam($params){
-        $sanitized_params = array_map(function ($value) {
-            return filter_var($value, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
-        }, $params);
+    public function addParam($params)
+    {
+        $sanitized_params = $this->sanitizeParams($params);
         $this->body = array_merge($this->body, $sanitized_params);
     }
-    public function param($param_name, $default_value = null) {
+
+    public function param($param_name, $default_value = null)
+    {
         return isset($this->body[$param_name]) ? $this->body[$param_name] : $default_value;
     }
 
+    public function headers()
+    {
+        return $this->headers;
+    }
 
     public function cookies()
     {
         return $this->cookies;
     }
 
-    public function getContentType()
+    private function sanitizeParams($params)
     {
-        return $this->content_type;
+        return array_map(function ($value) {
+            return filter_var($value, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
+        }, $params);
     }
 
-    public function getContentLength()
+    private function getHeaders()
     {
-        return $this->content_length;
+        $headers = [];
+        foreach ($_SERVER as $key => $value) {
+            if (strpos($key, 'HTTP_') === 0) {
+                $header_name = str_replace('_', '-', ucwords(strtolower(substr($key, 5))),);
+                $headers[$header_name] = $value;
+            }
+        }
+        return $headers;
     }
 
-    public function getAuthorization()
+    private function getCookies()
     {
-        return $this->authorization;
+        $cookies = [];
+        foreach ($_COOKIE as $key => $value) {
+            $cookies[$key] = filter_var($value, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
+        }
+        return $cookies;
     }
 
-    public function getAcceptLanguage()
+    private function getBody()
     {
-        return $this->accept_language;
-    }
-
-    public function getReferer()
-    {
-        return $this->referer;
-    }
-    public function setContentType($value)
-    {
-        $this->content_type = $value;
-    }
-
-    public function setContentLength($value)
-    {
-        $this->content_length = $value;
-    }
-
-    public function setAuthorization($value)
-    {
-        $this->authorization = $value;
-    }
-
-    public function setAcceptLanguage($value)
-    {
-        $this->accept_language = $value;
-    }
-
-    public function setReferer($value)
-    {
-        $this->referer = $value;
+        $body = [];
+        if ($this->requestMethod === 'get') {
+            $body = $this->sanitizeParams($_GET);
+        } elseif ($this->requestMethod === 'post') {
+            $post = $this->sanitizeParams($_POST);
+            $files = $this->sanitizeParams($_FILES);
+            $body = array_merge($post, $files);
+        }
+        return $body;
     }
 }

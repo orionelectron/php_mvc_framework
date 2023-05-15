@@ -84,7 +84,7 @@ class Request
         return $cookies;
     }
 
-    private function getBody()
+    public function getBody()
     {
         $body = [];
         if ($this->requestMethod === 'get') {

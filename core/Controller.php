@@ -1,17 +1,21 @@
 <?php
 
 namespace orion\core;
+
 use FFI\Exception;
+use SplStack;
 
 /*
    * Base Controller
    * Loads the models and views
    */
+
 class Controller
 {
   protected $base_path;
 
-  public function __construct($base_path) {
+  public function __construct($base_path)
+  {
     $this->base_path = $base_path;
   }
 
@@ -46,5 +50,31 @@ class Controller
     $rendered_content = ob_get_clean();
 
     echo $rendered_content;
+  }
+  function findFileUsingStack($rootFolder, $fileName)
+  {
+    $stack = new SplStack();
+    $stack->push($rootFolder);
+
+    while (!$stack->isEmpty()) {
+      $folder = $stack->pop();
+      $files = scandir($folder);
+
+      foreach ($files as $file) {
+        if ($file === '.' || $file === '..') {
+          continue;
+        }
+
+        $path = $folder . DIRECTORY_SEPARATOR . $file;
+
+        if (is_dir($path)) {
+          $stack->push($path);
+        } elseif (is_file($path) && $file === $fileName) {
+          return $path;
+        }
+      }
+    }
+
+    return false;
   }
 }
